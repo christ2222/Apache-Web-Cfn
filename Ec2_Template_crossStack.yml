@@ -1,0 +1,153 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  AWS CloudFormation Template for deploying Apache on Amazon Linux EC2 Instance 2023    
+  This Instance will refernce the sample network stack previously created.
+
+Mappings: # Defines a RegionMap mapping with key-value pairs for different regions. Each region maps to an AMI ID.
+  RegionMap: # logical Name
+    us-east-1:
+      AMI: "ami-08a0d1e16fc3f61ea"
+    us-west-1:
+      AMI: "ami-0ca1f30768d0cf0e1"
+    us-east-2:
+      AMI: "ami-033fabdd332044f06"
+    us-west-2:
+      AMI: "ami-0b20a6f09484773af"
+
+Parameters: 
+  InstanceType:
+    Type: String
+    Description: Enter t2.micro, m1.small, or m1.large. Default is t2.micro.
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+      - m1.small
+      - m1.large
+    ConstraintDescription: "must be a valid EC2 instance type."
+  KeyName: # This parameter will be used to retrieve an EC2 KeyPair
+    Description: "Name of an existing EC2 KeyPair to enable SSH access to the instance."
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: "Must be the name of an existing EC2 KeyPair."
+  VPCStackName:
+    Type: String
+    Description: "Name of the CloudFormation stack exporting the VPC ID, Subnet ID, and Security Group ID."
+
+Resources:
+  # Creates a security group named "SSH SG" that allows SSH access on port 22 
+  # from my IP.
+  InstanceSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Enable SSH access"
+      VpcId:
+        Fn::ImportValue: 'SampleNetworkCrossStack-VPCID'
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 162.251.173.95/32
+      Tags: 
+       - Key: "Name"
+         Value: "SSH SG"
+   # Creates an EC2 instance named "MyApacheWebserver". Uses the InstanceType 
+  # parameter and finds the corresponding AMI ID from the RegionMap based on 
+  # the current AWS region. References resources from the VPC stack and the 
+  # InstanceSecurityGroup. Includes user data script to install Apache, PHP, 
+  # start the service, and create a custom index.html page.      
+  MyEC2Instance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap  # intrinsic function to get the AMI ID from the RegionMap.
+        - RegionMap        # Use RegionMap to find AMI based on region
+        - !Ref "AWS::Region" # pseudo parameter that returns the AWS region in which the current stack is being created.
+        - AMI
+      KeyName: !Ref KeyName
+      SubnetId: !ImportValue
+        Fn::Sub: '${VPCStackName}-SubnetID' # Import Subnet ID from referenced stack
+      SecurityGroupIds:
+        - !Ref InstanceSecurityGroup
+        - Fn::ImportValue: !Sub '${VPCStackName}-SecurityGroupID' # Import SecurityGroupID from referenced stack
+      Tags: 
+       - Key: "Name"
+         Value: "MyApacheWebserver"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # User data script for Amazon Linux 2023
+
+          # Update packages
+          yum update -y
+
+          # Install Apache and PHP
+          yum install -y httpd php
+
+          # Start Apache service
+          systemctl start httpd
+          systemctl enable httpd
+
+          # Create a custom HTML page
+          cat << EOF > /var/www/html/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <style>
+                  body {
+                      background-image: url("https://www.cyberark.com/wp-content/uploads/2019/08/Cloud-Tech.jpg");
+                      background-size: cover;
+                      background-position: center;
+                      font-family: Arial, sans-serif;
+                      display: flex;
+                      justify-content: center;
+                      align-items: center;
+                      height: 100vh;
+                      margin: 0;
+                  }
+                  .message {
+                      text-align: center;
+                      color: white;
+                      padding: 50px;
+                      background-color: rgba(0, 0, 0, 0.9); /* Darker and more solid background */
+                      border-radius: 10px;
+                      max-width: 80%;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="message">
+                  <h1>CloudFormation is an Amazing Tool!</h1>
+                  <p>Mr. Claudio is an Awesome Instructor.</p>
+                  <p>Special shout out to Cloudspace Academy.</p>
+                  <p>To all my teachers: Narcisse & Idriss.</p>
+                  <p>To all the TA's Joseph & Hortense.</p>
+                  <p>And all my classmates.</p>
+              </div>
+          </body>
+          </html>
+          EOF
+ # Create an Elastic IP        
+  ElasticIP: 
+    Type: AWS::EC2::EIP
+
+# Associate the Elastic IP with an EC2 instance
+  MyElasticIPAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      InstanceId: !Ref MyEC2Instance
+      EIP: !Ref ElasticIP
+Outputs:
+ # Output the private IP address of the EC2 instance
+  InstancePrivateIP:
+    Description: "Private IP address of the EC2 instance"
+    Value: !GetAtt MyEC2Instance.PrivateIp
+    Export:
+      Name: !Sub '${AWS::StackName}-PrivIP' # it replaced with the actual stack name during deployment
+
+  # Output the public DNS name of the EC2 instance
+  InstancePublicDNS:
+    Description: "Public DNS name of the EC2 instance"
+    Value: !GetAtt MyEC2Instance.PublicDnsName
+    Export:
+      Name: !Sub '${AWS::StackName}-pubDNSname'
+
+
