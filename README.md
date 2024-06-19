@@ -33,7 +33,7 @@ This project sets up a two-stage CI/CD pipeline to automatically deploy a static
 
     ```
 
-### 4. Create the CI/CD Pipeline
+### 3. Create the CI/CD Pipeline
 1. Create a pipeline using AWS CodePipeline with two stages: Source (GitHub) and Deploy (S3).
     ```sh
     aws codepipeline create-pipeline here I use the console to create the pipeline
