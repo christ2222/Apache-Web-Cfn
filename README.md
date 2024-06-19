@@ -1,60 +1,34 @@
-# Static Website Deployment Using AWS CodePipeline
+# Apache Web Server Deployment using CloudFormation
 
 ## Project Overview
-This project sets up a two-stage CI/CD pipeline to automatically deploy a static website to an Amazon S3 bucket. The website is a simple HTML page displaying my name, <Christian Logotse>. The source code is hosted in my personal GitHub repository.
+This project involves deploying an Apache web server on an Amazon Linux 2023 EC2 instance using AWS CloudFormation. The stack references a pre-existing network stack and outputs the private IP address and public DNS name of the EC2 instance.
 
 ## Prerequisites
-- An AWS account
+- An existing VPC stack (SampleNetworkCrossStack)
 - AWS CLI configured
-- A GitHub account with the source repository
-- AWS CodePipeline, and S3 configured
+- A valid EC2 Key Pair
 
-## Pipeline Setup
-
-### 1. Create an S3 Bucket
-1. Create an S3 bucket to host your static website.
+## Stack Deployment
+1. Deploy the Sample Network Stack:
     ```sh
-    aws s3 mb s3://my-static-website-bucket
+    aws cloudformation create-stack --stack-name SampleNetworkStack --template-body file://sample-network-stack.yaml --region us-west-2
     ```
-
-2. Enable static website hosting on the bucket.
+2. Deploy the Apache EC2 Instance Stack:
     ```sh
-    aws s3 website s3://my-static-website-bucket/ --index-document index.html
+    aws cloudformation create-stack --stack-name ApacheEC2Stack --template-body file://apache-ec2-template.yaml --parameters ParameterKey=InstanceType,ParameterValue=t2.micro ParameterKey=KeyName,ParameterValue=your-key-name ParameterKey=VpcStackName,ParameterValue=SampleNetworkStack --region us-west-2
     ```
 
-### 2. Create a GitHub Repository
-1. Create a new repository on GitHub <staticweb-cicd-bucket> and push your HTML file. :
-   git clone
-   git add <filename>
-   git commit -m
-   git push 
-   
-    ```
-
-    ```
-
-### 3. Create the CI/CD Pipeline
-1. Create a pipeline using AWS CodePipeline with two stages: Source (GitHub) and Deploy (S3).
+## Accessing the Apache Server
+- SSH into the EC2 instance using:
     ```sh
-    aws codepipeline create-pipeline here I use the console to create the pipeline
-```
-
-## Accessing the Static Website
-- Navigate to your S3 bucket's website endpoint URL, which will look like:
-  ```
-  http://my-static-website-bucket.s3-website-us-west-2.amazonaws.com
-  ```
+    ssh -i your-key-name.pem ec2-user@<ElasticIP>
+    ```
+- Open a web browser and navigate to `http://<ElasticIP>` to see the Apache web page.
 
 ## Repository Contents
-- `index.html`: The HTML file for the static website.
-- Screenshots of the CI/CD pipeline stages.
-
-## Showcase
-- [GitHub Repository](https://github.com/your-username/your-repository)
-- [S3 Website URL](http://my-static-website-bucket.s3-website-us-west-2.amazonaws.com)
-- Screenshots of the CI/CD pipeline:
-  - ![Pipeline Stage 1](path-to-screenshot-1)
-  - ![Pipeline Stage 2](path-to-screenshot-2)
+- `sample-network-stack.yaml`: CloudFormation template for the network stack.
+- `apache-ec2-template.yaml`: CloudFormation template for the Apache EC2 instance.
+- Screenshots of the deployed Apache web page.
 
 ## License
 This project is licensed under the @christian@ License.
